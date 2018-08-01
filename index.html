@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+
+    <style>
+        body {
+              font-family: "Comic Sans MS";
+         }
+
+        h1 {
+            color: #a6a6a6;
+        }
+
+        h3 {
+            color: #a6a6a6;
+        }
+
+        h4 {
+            color: #a6a6a6;
+        }
+        
+        .green {
+            color: red;
+        }
+        
+        .
+
+
+        svg {
+            border: solid 1px #e0ebeb;
+        }
+
+        rect:hover {
+            fill: orange;
+            -moz-transition: all 0.25s;
+            -o-transition: all 0.25s;
+            -webkit-transition: all 0.25s;
+            transition: all 0.25s;
+        }
+
+        .axis path {
+            display: none;
+        }
+
+        .tooltip {
+            position: relative;
+            display: inline-block;
+            border-bottom: 1px dotted black;
+        }
+
+        .top-label {
+              font-size: 13px;
+              float: left;
+              color: #009999;
+         } 
+
+         .clearfix {
+              clear: both;
+         }
+
+         .button {
+            float: left;
+            margin-left: 10px;
+            font-weight: lighter;
+            cursor: pointer;
+        }
+        
+    }
+
+    </style>
+
+</head>
+
+<body>
+    
+    <h1>Ecological Commuting for Work in Large US Cities</h1>
+    <h3>Get to Know Number of Workers Commuting to Work by Walking or Cycling !!!</h3>
+    <h4> -- CLICK on Vertical Bar Colored Segments to See the DRILL DOWN STORY !!! </h4>
+  
+    <!-- Write your comments here -->
+
+<script src="//d3js.org/d3.v4.min.js"></script>
+    
+<script>
+
+function type(d, i, columns) {
+  for (i = 1, t = 0; i < columns.length; ++i) t += d[columns[i]] = +d[columns[i]];
+  d.total = t;
+  return d;
+}      
+    
+
+// Defintions for main svg   
+    
+var m_width = 900,
+    m_height = 350;
+    
+var svg = d3.select("body").append("svg")
+    .attr("width", m_width)
+    .attr("height", m_height);
+    
+var margin = {top: 20, right: 20, bottom: 40, left: 40},
+    width = +svg.attr("width") - margin.left - margin.right,
+    height = +svg.attr("height") - margin.top - margin.bottom,
+    g = svg.append("g").attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+var x = d3.scaleBand()
+    .rangeRound([0, width])
+    .padding(0.1)
+    .align(0.1);
+
+var y = d3.scaleLinear()
+    .rangeRound([height, 0]);
+
+var z = d3.scaleOrdinal()
+    .range(["#00cccc", "#00ff00"]);
+
+var stack = d3.stack();
+    
+var body = d3.select("body");
+    
+var perStData;
+    
+var first_click = 1;
+    
+body.append("div")
+          .attr("class", "clearfix")    
+    
+// Definitions for lower svg
+var l_margin = {
+   top: 15,
+   right: 60,
+   bottom: 15,
+   left: 100
+};
+
+var l_width = 700 - l_margin.left - l_margin.right,
+    l_height = 350 - l_margin.top - l_margin.bottom;
+
+var l_svg = d3.select("body").append("svg")                
+    .attr("width", l_width + l_margin.left + l_margin.right)
+    .attr("height", l_height + l_margin.top + l_margin.bottom)
+    .append("g")
+    .attr("transform", "translate(" + l_margin.left + "," + l_margin.top + ")"); 
+    
+//Define lkey function, to be used when binding data
+var lkey = function(d) {
+    return d.City;
+};
+
+d3.csv("Num_Workers_Biking_or_Cycling.csv", type, function(error, data) {
+     
+  if (error) throw error;
+    
+  var moveBy, 
+      inState;
+    
+  perStData = data;
+  console.log(data);
+
+  //data.sort(function(a, b) { return b.total - a.total; });
+
+  x.domain(data.map(function(d) { return d.State; }));
+  y.domain([0, d3.max(data, function(d) { return d.total; })]).nice();
+  z.domain(data.columns.slice(1));
+
+  stack.keys(data.columns.slice(1));
+  
+  g.selectAll(".serie")
+    .data(stack(data))
+    .enter().append("g")
+      .attr("class", "serie")
+      .attr("fill", function(d) { return z(d.key); })
+    .selectAll("rect")
+    .data(function(d) { return d; })
+    .enter().append("rect")
+      .attr("x", function(d) { return x(d.data.State); })
+      .attr("y", function(d) { return y(d[1]); })
+      .attr("height", function(d) { return y(d[0]) - y(d[1]); })
+      .attr("width", x.bandwidth())
+    
+    // #### Enter the interactive section 
+    //
+    
+      .on("click", function(d) {
+      
+           if (d[0] == 0) {
+               moveBy="Walking"
+           }
+           else {
+               moveBy="Cycling"
+           }
+                 
+           inState=d.data.State;               
+      
+           d3.csv("Data_per_City.csv", type, function(error, ctdata) {
+               if (error) throw error;
+               
+               console.log(ctdata);
+               
+               var patt = RegExp(inState + "_");
+               var nums_city = [];
+               var comm_count;
+               var hvar_color;
+               
+               
+               for (var i = 0; i < ctdata.length; i++) {
+                    if (patt.test(ctdata[i].Location)){
+                        
+                        if(moveBy == "Cycling") {
+                            comm_count = ctdata[i].Cycling;
+                            hvar_color = "#00ff00";
+                        }
+                        else {
+                            comm_count = ctdata[i].Walking;
+                            hvar_color = "#00cccc";
+                        }
+                        
+                        nums_city.push({
+                           City:  ctdata[i].Location.split('_')[1],
+                           Num_Commuters: comm_count
+                        });
+                    }
+               }
+               
+               var bars = l_svg.selectAll("rect")
+                           .data(nums_city,lkey);
+               
+              /* var labels l_svg.selectAll("text")
+                           .data(dataset, key);*/
+                   
+               
+               console.log(nums_city)
+            
+               //sort bars based on value
+               
+                nums_city = nums_city.sort(function (a, b) {
+                    return d3.ascending(a.Num_Commuters, b.Num_Commuters);
+                })
+               
+                if (first_click == 1) {
+                    
+                    first_click = 0;
+                             
+                    var x = d3.scaleLinear()
+                        .range([0, l_width])
+                        .domain([0, d3.max(nums_city, function (d) {
+                        return d.Num_Commuters;
+                        })]);
+
+                    var y = d3.scaleBand()
+                        .rangeRound([l_height, 0])
+                        .padding(0.1)
+                        .domain(nums_city.map(function (d) {
+                        return d.City;
+                        }));
+
+                    //make y axis to show bar names
+                    var yAxis = d3.axisLeft()
+                        .scale(y);
+                    
+                    /*
+                    var lxScale = d3.scaleLinear()
+                        .domain([0, d3.max(nums_city, function(d) { return d[0]; })])
+                        .range([0, w]); */
+                    
+                    var xAxis = d3.axisBottom()
+                                .scale(x); 
+                    
+                    var gy = l_svg.append("g")
+                        .attr("class", "y axis")
+                        .call(yAxis); 
+                    
+                    l_svg.append("g")
+				        .attr("class", "x axis")
+                        .attr("transform", "translate(0," + (350 - 35) + ")")
+                        .call(xAxis);
+
+                    
+                    console.log("first_click is " + first_click);
+                
+                    // CREATE RECT SECTION
+                    bars.enter()
+                        .append("rect")
+                        .attr("class", "bar")
+                        .attr("fill",hvar_color)
+                        .attr("y", function (d) {
+                            return y(d.City);
+                        })  
+                        .attr("height", y.bandwidth())
+                        .attr("x", 0)
+                        .attr("width", function (d) {
+                            return x(d.Num_Commuters);
+                        });
+
+
+                    // APPEND TEXT/LABELS SECTION
+                    l_svg.append("text")
+                          .attr("class", "title")
+                          .attr("x", l_margin.left - 100)
+                          .attr("y", 0 - l_margin.top + 15)
+                          .attr("text-anchor", "left")
+                          .attr("fill", "black")
+                          .style("font", "12px sans-serif")
+                          .text("Num. of Workers Commuting by " + moveBy + " / Breakdown per City in " + inState + " State");
+                    
+                    
+                }
+                else {
+                    
+                        console.log(moveBy)
+
+                     
+                        var x = d3.scaleLinear()
+                        .range([0, l_width])
+                        .domain([0, d3.max(nums_city, function (d) {
+                        return d.Num_Commuters;
+                        })]);
+
+                        var y = d3.scaleBand()
+                            .rangeRound([l_height, 0])
+                            .padding(0.1)
+                            .domain(nums_city.map(function (d) {
+                            return d.City;
+                            }));
+
+                        //make y axis to show bar names
+                        var yAxis = d3.axisLeft()
+                            .scale(y);
+                    
+                        var xAxis = d3.axisBottom()
+                                .scale(x); 
+                    
+                        // Remove ticks and labels
+                        l_svg.selectAll("g").remove()
+                        l_svg.selectAll("text").remove()
+
+                    
+                        //LABELS
+                        var gy = l_svg.append("g")
+                            .attr("class", "y axis")
+                            .call(yAxis)
+                        
+                            l_svg.append("g")
+                            .attr("class", "x axis")
+                            .attr("transform", "translate(0," + (350 - 35) + ")")
+                            .call(xAxis);
+
+                        //SELECT
+                        bars = l_svg.selectAll("rect")
+						  .data(nums_city,lkey);
+                        
+                        console.log()
+                    
+                    
+                        // ENTER
+                                 bars.enter()
+                                .append("rect")
+                                .attr("class", "bar")
+                                .attr("x", 0)
+                                .attr("y", function (d) {
+                                    return y(d.City);
+                                }) 
+                                .merge(bars)
+                                .transition()
+                                    .delay(500)
+                                    .duration(500)
+                                    .ease(d3.easeLinear)
+                                .attr("fill",hvar_color)
+                                .attr("height", y.bandwidth())
+                                .attr("width", function (d) {
+                                    return x(d.Num_Commuters);
+                                });
+                    
+                        // APPEND TITLE
+                        l_svg.append("text")
+                          .attr("class", "title")
+                          .attr("x", l_margin.left - 100)
+                          .attr("y", 0 - l_margin.top + 15)
+                          .attr("text-anchor", "left")
+                          .attr("fill", "black")
+                          .style("font", "12px sans-serif")
+                          .text("Num. of Workers Commuting by " + moveBy + " | Breakdown per City in " + inState + " State");
+
+
+                    
+                        //Exit…
+                                bars.exit()
+                                    .transition()
+                                        .duration(300)
+                                        .ease(d3.easeLinear)
+                                        .attr("width", 0)
+                                    .remove();
+                    
+                        
+                        
+                        
+                        
+
+                       
+                }
+
+               
+           });
+           
+        })
+      .append("title")
+      .text(function(d) {
+          return (d[1]-d[0]).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+       });
+
+  g.append("g")
+      .attr("class", "axis axis--x")
+      .attr("transform", "translate(0," + height + ")")
+      .call(d3.axisBottom(x));
+  
+  g.append("text")             
+      .attr("transform",
+            "translate(" + (width/2) + " ," + 
+                           (height + margin.top + 12) + ")")
+      .style("text-anchor", "middle")
+      .attr("fill", "black")
+      .style("font", "12px sans-serif")
+      .text("State");
+
+  g.append("g")
+      .attr("class", "axis axis--y")
+      .call(d3.axisLeft(y).ticks(10, "s"))
+    .append("text")
+      .attr("x", 5)
+      .attr("y", 10 + y(y.ticks(10).pop()))
+      .attr("dy", "0.1em")
+      .attr("text-anchor", "start")
+      .attr("fill", "black")
+      .style("font", "12px sans-serif")
+      .text("  Stacked Number of Workers");
+
+  var legend = g.selectAll(".legend")
+    .data(data.columns.slice(1).reverse())
+    .enter().append("g")
+      .attr("class", "legend")
+      .attr("transform", function(d, i) { return "translate(0," + i * 20 + ")"; })
+      .style("font", "10px sans-serif");
+
+  legend.append("rect")
+      .attr("x", width - 18)
+      .attr("width", 18)
+      .attr("height", 18)
+      .attr("fill", z);
+
+  legend.append("text")
+      .attr("x", width - 24)
+      .attr("y", 9)
+      .attr("dy", ".35em")
+      .attr("text-anchor", "end")
+      .text(function(d) { return d; });
+});
+
+
+
+</script>
+    </body>
+</html>
